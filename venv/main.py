@@ -15,10 +15,11 @@ user_profiles = mongo_db['user_profiles_v3']
 readmes_gensim = mongo_db['readmes_v2_tfidf_gensim']
 users = mongo_db['users']
 
+NUMBER_OF_RECOMMENDATIONS = 10
+
 def relevance():
     # TEST Repo Set
     # Test ONE repo first
-
     repoQ = []
     repoQ.append(readmes_gensim.find_one({"id": 98036093}, {"_id": 0, "id": 1, "readme_tfidf":1, "watchers":1}))
     print(repoQ)
@@ -40,7 +41,7 @@ def relevance():
                 relevance = c1.result() * c2.result() * c3.result()
                 suggestion.append((y['id'], relevance))
                 suggestion.sort(key = lambda x: (x[1]), reverse=True)
-                while len(suggestion) > 10:
+                while len(suggestion) > NUMBER_OF_RECOMMENDATIONS:
                     suggestion.pop()
 
     print(suggestion)
