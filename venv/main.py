@@ -1,6 +1,7 @@
 # pymongo is the Python plugin used to connect to MongoDB server.
 # You need to install it via command-line tool first.
 import pymongo
+import sys, getopt
 from datetime import datetime, timedelta
 import math
 import concurrent.futures
@@ -15,14 +16,13 @@ user_profiles = mongo_db['user_profiles_v3']
 readmes_gensim = mongo_db['readmes_v2_tfidf_gensim']
 users = mongo_db['users']
 
-NUMBER_OF_RECOMMENDATIONS = 10
+DEFAULT_NUM_RECOMMENDATIONS = 10
 
-def relevance():
+#98036093
+def relevance(user, number_of_recommendations=DEFAULT_NUM_RECOMMENDATIONS):
     # TEST Repo Set
     # Test ONE repo first
-    repoQ = []
-    repoQ.append(readmes_gensim.find_one({"id": 98036093}, {"_id": 0, "id": 1, "readme_tfidf":1, "watchers":1}))
-    print(repoQ)
+    repoQ = [readmes_gensim.find_one({"id": user}, {"_id": 0, "id": 1, "readme_tfidf":1, "watchers":1})]
     repo_set = readmes_gensim.find({}, {"_id" : 0})
     suggestion = []
     counter = 0
@@ -31,8 +31,8 @@ def relevance():
     for x in repoQ:
         for y in repo_set:
             counter += 1
-            if counter % 1000 == 0:
-                print(counter)
+            if counter % 85000 == 0:
+                print(f'{round(counter/1700000)}% complete')
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 c1 = executor.submit(compute_readme_relevance, x, y)
                 c2 = executor.submit(compute_time_relevance, x, y)
@@ -41,10 +41,10 @@ def relevance():
                 relevance = c1.result() * c2.result() * c3.result()
                 suggestion.append((y['id'], relevance))
                 suggestion.sort(key = lambda x: (x[1]), reverse=True)
-                while len(suggestion) > NUMBER_OF_RECOMMENDATIONS:
+                while len(suggestion) > number_of_recommendations:
                     suggestion.pop()
 
-    print(suggestion)
+    return suggestion
 
 
 def compute_readme_relevance(first_repo, second_repo):
@@ -147,6 +147,30 @@ def union(l1, l2):
     l3 = l1 + l2
     return l3
 
-
-#TO TEST
-rel = relevance()
+if __name__ == "__main__":
+    argv = sys.argv[1:]
+    user = 0
+    num = 0
+    try:
+        opts, args = getopt.getopt(argv, "h:u:n:", ["user=","num=","help="])
+    except getopt.GetoptError:
+        print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt in ('-h', "--help"):
+            print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
+            print(f'Default number of recommendations is {DEFAULT_NUM_RECOMMENDATIONS}')
+            sys.exit()
+        elif opt in ("-u", "--user"):
+            user = int(arg)
+        elif opt in ("-n", "--num"):
+            num = int(arg)
+    if num == 0:
+        print(f'Running relevance of user {user} with {DEFAULT_NUM_RECOMMENDATIONS} recommendations')
+        print(relevance(user))
+    if user == 0:
+        print("User is not optional")
+        print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
+    if num != 0 and user != 0:
+        print(f'Running relevance of user {user} with {num} recommendations')
+        print(relevance(user, num))
