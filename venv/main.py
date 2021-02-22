@@ -15,7 +15,7 @@ mongo_db = mongo_client["MCS"]
 user_profiles = mongo_db['user_profiles_v3']
 readmes_gensim = mongo_db['readmes_v2_tfidf_gensim']
 users = mongo_db['users']
-watching = mongo_db['users_watching']
+watching = mongo_db['watching']
 
 DEFAULT_NUM_RECOMMENDATIONS = 10
 
@@ -24,30 +24,42 @@ def relevance(user, number_of_recommendations=DEFAULT_NUM_RECOMMENDATIONS):
     # TEST Repo Set
     # Test ONE repo first
     #repoQ = [readmes_gensim.find_one({"id": user}, {"_id": 0, "id": 1, "readme_tfidf":1, "watchers":1})]
-    repoQ = []
-    repo = watching.find({"user_id": user}, {"_id": 0, "user_id": 1, "repo_id": 1})
-    for x in repo:
-        val = readmes_gensim.find_one({"id": x['repo_id']}, {"_id":0, "id":1, "readme_tfidf":1, "watchers":1})
-        if val != None:
-            repoQ.append(val)
+    repoQ = watching.find({"user_id": user}, {"_id": 0, "repo_id": 1})
+    repo_set = watching.find({}, {"_id":0, "repo_id" : 1}).distinct("repo_id")
 
-    repo_set = readmes_gensim.find({}, {"_id" : 0})
+
+    # repo_ids = [x['repo_id'] for x in watching.find({}, {"_id":0, "repo_id":1})]
+    # repo_set = []
+    # for x in repo_ids:
+    #     val = readmes_gensim.find_one({"id": x}, {"_id" : 0})
+    #     if val != None:
+    #         repo_set.append(val)
+
     suggestion = []
     counter = 0
 
+    #212268
+
+    print("Starting relevance...")
     # Repo's to test again
     for x in repoQ:
+        x_repo = readmes_gensim.find_one({"id": x['repo_id']}, {"_id": 0, "id": 1, "readme_tfidf": 1})
+        if x_repo is None:
+            continue
         for y in repo_set:
+            y_repo = readmes_gensim.find_one({"id": y}, {"_id":0, "id":1, "readme_tfidf":1})
+            if y_repo is None:
+                continue
             counter += 1
-            if counter % 85000 == 0:
-                print(f'{round(counter/1700000)}% complete') #DOESNT WORK
+            if counter % 1000 == 0:
+                print(counter) #DOESNT WORK
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                c1 = executor.submit(compute_readme_relevance, x, y)
-                c2 = executor.submit(compute_time_relevance, x, y)
-                c3 = executor.submit(compute_stargazer_user_relevance, x, y)
+                #c1 = executor.submit(compute_readme_relevance, x_repo, y_repo)
+                #c2 = executor.submit(compute_time_relevance, x_repo, y_repo)
+                c3 = executor.submit(compute_stargazer_user_relevance, x_repo, y_repo)
 
-                relevance = c1.result() * c2.result() * c3.result()
-                suggestion.append((y['id'], relevance))
+                relevance = c3.result()#c1.result() * c2.result() * c3.result()
+                suggestion.append((y, relevance))
                 suggestion.sort(key = lambda x: (x[1]), reverse=True)
                 while len(suggestion) > number_of_recommendations:
                     suggestion.pop()
@@ -75,50 +87,41 @@ def compute_readme_relevance(first_repo, second_repo):
     return top / bottom
 
 def compute_stargazer_user_relevance(first_repo, second_repo):
-    repo_one = [x['user_id'] for x in first_repo['watchers']]
-    repo_two = [x['user_id'] for x in second_repo['watchers']]
+    repo_one = first_repo['id']
+    repo_two = second_repo['id']
 
     if repo_one == repo_two:
         return 0
-    if len(repo_one) == 0 or len(repo_two) == 0:
-        return 0
 
     total = 0
-    for x in repo_one:
-        for y in repo_two:
-            total += compute_sim(x, y)
+    first = [x for x in watching.find({'repo_id': repo_one}, {"_id":0, "user_id":1})]
+    second = [x for x in watching.find({'repo_id': repo_two}, {"_id":0, "user_id":1})]
+    for x in first:
+        user_one = users.find_one({"user_id": x}, {"_id": 0, "repopal_user_similarities": 1})
 
-    #Print relevance
-    if len(repo_one + repo_two) == 0:
-        return 0
-    return total / len(repo_one + repo_two)
+        if user_one is None:
+            continue
 
-def compute_sim(user1, user2):
-    print(user1)
-    user_one = users.find_one({"user_id": user1}, {"_id": 0, "repopal_user_similarities": 1})
-    print(user_one)
-    if user_one == None:
-        return 0
-    if user_one != None:
-        print("YAY")
+        for y in second:
+            val = user_one['repopal_user_similarities'][y]
+            if val is None:
+                continue
+            else:
+                total += val
 
-
-    val = user_one['repopal_user_similarities'][user2]
-    print(val)
-    if val == None:
-        return 0
-    else:
-        return val
+    return total / len(first + second)
 
 def compute_time_relevance(first_repo, second_repo):
-    repo_one = first_repo['watchers']
-    repo_two = second_repo['watchers']
+    repo_one = watching.find({"repo_id":first_repo['id']}, {"_id":0, "user_id":1, "created_at":1})
+    repo_two = watching.find({"repo_id":second_repo['id']}, {"_id":0 ,"user_id":1, "created_at":1})
+
     if not repo_one or not repo_two:
         return 0
     if repo_one == repo_two:
         return 0
 
-    inter = intersection_on_user(repo_one, repo_two)
+    inter = intersection(watching.find({"repo_id":first_repo['id']}, {"_id":0, "user_id":1}).distinct("user_id"), watching.find({"repo_id":second_repo['id']}, {"_id":0, "created_at":1}).distinct("user_id"))
+
     if not inter:
         return 0
 
@@ -128,29 +131,22 @@ def compute_time_relevance(first_repo, second_repo):
 
     for each in inter:
         total += 1
-        for x in repo_one:
-            for y in repo_two:
-                if x['user_id'] == each and y['user_id'] == each:
-                    date_one = datetime.strptime(y['created_at'], "%Y/%m/%d %H:%M:%S")
-                    date_two = datetime.strptime(x['created_at'], "%Y/%m/%d %H:%M:%S")
-                    bot = abs((date_two - date_one).seconds/3600)
-                    if bot == 0:
-                        sum += 1
-                    else:
-                        sum += (1 / bot)
+        x = watching.find_one({"repo_id":first_repo['id'], "user_id": each}, {"_id":0, "user_id":1, "created_at":1})
+        y = watching.find_one({"repo_id":second_repo['id'], "user_id": each}, {"_id":0 ,"user_id":1, "created_at":1})
+        date_one = datetime.strptime(y['created_at'], "%Y/%m/%d %H:%M:%S")
+        date_two = datetime.strptime(x['created_at'], "%Y/%m/%d %H:%M:%S")
+        bot = abs((date_two - date_one).seconds/3600)
+        if bot == 0:
+            sum += 0
+        else:
+            sum += (1 / bot)
 
 
     average = sum / total
     return average
 
-def intersection_on_user(l1, l2):
-    nL1 = [x['user_id'] for x in l1]
-    nL2 = [x['user_id'] for x in l2]
-    return intersection(nL1, nL2)
-
 def intersection(l1,l2):
-    lst3 = [value for value in l1 if value in l2]
-    return lst3
+    return set(l1).intersection(l2)
 
 def union(l1, l2):
     l3 = l1 + l2
