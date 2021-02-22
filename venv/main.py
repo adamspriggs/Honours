@@ -15,6 +15,7 @@ mongo_db = mongo_client["MCS"]
 user_profiles = mongo_db['user_profiles_v3']
 readmes_gensim = mongo_db['readmes_v2_tfidf_gensim']
 users = mongo_db['users']
+watching = mongo_db['users_watching']
 
 DEFAULT_NUM_RECOMMENDATIONS = 10
 
@@ -22,7 +23,14 @@ DEFAULT_NUM_RECOMMENDATIONS = 10
 def relevance(user, number_of_recommendations=DEFAULT_NUM_RECOMMENDATIONS):
     # TEST Repo Set
     # Test ONE repo first
-    repoQ = [readmes_gensim.find_one({"id": user}, {"_id": 0, "id": 1, "readme_tfidf":1, "watchers":1})]
+    #repoQ = [readmes_gensim.find_one({"id": user}, {"_id": 0, "id": 1, "readme_tfidf":1, "watchers":1})]
+    repoQ = []
+    repo = watching.find({"user_id": user}, {"_id": 0, "user_id": 1, "repo_id": 1})
+    for x in repo:
+        val = readmes_gensim.find_one({"id": x['repo_id']}, {"_id":0, "id":1, "readme_tfidf":1, "watchers":1})
+        if val != None:
+            repoQ.append(val)
+
     repo_set = readmes_gensim.find({}, {"_id" : 0})
     suggestion = []
     counter = 0
@@ -32,7 +40,7 @@ def relevance(user, number_of_recommendations=DEFAULT_NUM_RECOMMENDATIONS):
         for y in repo_set:
             counter += 1
             if counter % 85000 == 0:
-                print(f'{round(counter/1700000)}% complete')
+                print(f'{round(counter/1700000)}% complete') #DOESNT WORK
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 c1 = executor.submit(compute_readme_relevance, x, y)
                 c2 = executor.submit(compute_time_relevance, x, y)
@@ -86,20 +94,21 @@ def compute_stargazer_user_relevance(first_repo, second_repo):
     return total / len(repo_one + repo_two)
 
 def compute_sim(user1, user2):
-    user_one = user_profiles.find_one({"user_id": user1}, {"_id": 0, "watching": 1})
-    user_two = user_profiles.find_one({"user_id": user2}, {"_id": 0, "watching": 1})
-    if user_one == None or user_two == None:
+    print(user1)
+    user_one = users.find_one({"user_id": user1}, {"_id": 0, "repopal_user_similarities": 1})
+    print(user_one)
+    if user_one == None:
         return 0
+    if user_one != None:
+        print("YAY")
 
-    if not user_one['watching'] or not user_two['watching']:
+
+    val = user_one['repopal_user_similarities'][user2]
+    print(val)
+    if val == None:
         return 0
-
-    inter = intersection(user_one['watching'], user_two['watching'])
-    uni = union(user_one['watching'], user_two['watching'])
-
-    if len(uni) == 0:
-        return 0;
-    return len(inter) / len(uni)
+    else:
+        return val
 
 def compute_time_relevance(first_repo, second_repo):
     repo_one = first_repo['watchers']
@@ -173,4 +182,5 @@ if __name__ == "__main__":
         print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
     if num != 0 and user != 0:
         print(f'Running relevance of user {user} with {num} recommendations')
-        print(relevance(user, num))
+        #print(relevance(user, num))
+        relevance(user, num)
