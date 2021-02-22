@@ -15,15 +15,16 @@ mongo_db = mongo_client["MCS"]
 user_profiles = mongo_db['user_profiles_v3']
 readmes_gensim = mongo_db['readmes_v2_tfidf_gensim']
 users = mongo_db['users']
+watching = mongo_db['watching']
 
+ALL_USERS = users.find({}, {"_id":0, "id":1}).distinct("id")
 DEFAULT_NUM_RECOMMENDATIONS = 10
 
-#98036093
 def relevance(user, number_of_recommendations=DEFAULT_NUM_RECOMMENDATIONS):
     # TEST Repo Set
     # Test ONE repo first
-    repoQ = [readmes_gensim.find_one({"id": user}, {"_id": 0, "id": 1, "readme_tfidf":1, "watchers":1})]
-    repo_set = readmes_gensim.find({}, {"_id" : 0})
+    repoQ = readmes_gensim.find({'watchers': {'$elemMatch': {'user_id': user}}}, {"_id":0, "id":1, "readme_tfidf":1, "watchers":1})
+    repo_set = readmes_gensim.find({'watchers': {'$elemMatch': {'user_id': {'$in': ALL_USERS}}}}, {"_id": 0, "id": 1, "readme_tfidf": 1, "watchers": 1})
     suggestion = []
     counter = 0
 
@@ -31,13 +32,12 @@ def relevance(user, number_of_recommendations=DEFAULT_NUM_RECOMMENDATIONS):
     for x in repoQ:
         for y in repo_set:
             counter += 1
-            if counter % 85000 == 0:
-                print(f'{round(counter/1700000)}% complete')
+            if counter % 1000 == 0:
+                print(f'{(counter/10000)*100}% complete') # check if this works with mulitple x repos
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 c1 = executor.submit(compute_readme_relevance, x, y)
                 c2 = executor.submit(compute_time_relevance, x, y)
                 c3 = executor.submit(compute_stargazer_user_relevance, x, y)
-
                 relevance = c1.result() * c2.result() * c3.result()
                 suggestion.append((y['id'], relevance))
                 suggestion.sort(key = lambda x: (x[1]), reverse=True)
@@ -48,27 +48,46 @@ def relevance(user, number_of_recommendations=DEFAULT_NUM_RECOMMENDATIONS):
 
 
 def compute_readme_relevance(first_repo, second_repo):
-    top = 0
-    inter = intersection([x for x in first_repo['readme_tfidf']], [x for x in second_repo['readme_tfidf']])
+    try:
+        if first_repo['readme_tfidf']['nan'] == 1:
+            return 0
+        if second_repo['readme_tfidf']['nan'] == 1:
+            return 0
+    except:
+        top = 0
+        inter = intersection([x for x in first_repo['readme_tfidf']], [x for x in second_repo['readme_tfidf']])
 
-    for x in inter:
-        if first_repo['readme_tfidf'][x] and second_repo['readme_tfidf'][x]:
-            top += (first_repo['readme_tfidf'][x] * second_repo['readme_tfidf'][x])
-        else:
-            continue
+        if len(inter) == 0:
+            return 0
+        for x in inter:
+            if first_repo['readme_tfidf'][x] and second_repo['readme_tfidf'][x]:
+                top += (first_repo['readme_tfidf'][x] * second_repo['readme_tfidf'][x])
+            else:
+                continue
 
-    f = 0
-    s = 0
-    for x in first_repo['readme_tfidf']:
-        f += (first_repo['readme_tfidf'][x] ** 2)
-    for x in second_repo['readme_tfidf']:
-        s += (second_repo['readme_tfidf'][x] ** 2)
-    bottom = math.sqrt(f) ** math.sqrt(s)
-    return top / bottom
+        if round(top) == 0:
+            return 0
+
+        f = 0
+        s = 0
+        for x in first_repo['readme_tfidf']:
+            f += (first_repo['readme_tfidf'][x] ** 2)
+        for x in second_repo['readme_tfidf']:
+            s += (second_repo['readme_tfidf'][x] ** 2)
+        bottom = math.sqrt(f) * math.sqrt(s)
+        if bottom == 0:
+            return 0
+        return top / bottom
 
 def compute_stargazer_user_relevance(first_repo, second_repo):
-    repo_one = [x['user_id'] for x in first_repo['watchers']]
-    repo_two = [x['user_id'] for x in second_repo['watchers']]
+    repo_one = []
+    repo_two = []
+    for x in first_repo['watchers']:
+        if x['user_id'] in ALL_USERS:
+            repo_one.append(x['user_id'])
+    for x in second_repo['watchers']:
+        if x['user_id'] in ALL_USERS:
+            repo_two.append(x['user_id'])
 
     if repo_one == repo_two:
         return 0
@@ -166,11 +185,19 @@ if __name__ == "__main__":
         elif opt in ("-n", "--num"):
             num = int(arg)
     if num == 0:
-        print(f'Running relevance of user {user} with {DEFAULT_NUM_RECOMMENDATIONS} recommendations')
-        print(relevance(user))
+        print(f'Running relevance of user {user} with {DEFAULT_NUM_RECOMMENDATIONS} recommendations...')
+        ret = relevance(user)
+        if len(ret) == 0:
+            print(f'Could not find suggestions for {user}. This could be because the dataset of repositories do not include some/all of the repository that user follows.')
+        else:
+            print(ret)
     if user == 0:
         print("User is not optional")
         print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
     if num != 0 and user != 0:
-        print(f'Running relevance of user {user} with {num} recommendations')
-        print(relevance(user, num))
+        print(f'Running relevance of user {user} with {num} recommendations...')
+        ret = relevance(user, num)
+        if len(ret) == 0:
+            print(f'Could not find suggestions for user: {user}. This could be because the dataset of repositories do not include some/all of the repository that user follows.')
+        else:
+            print(ret)
