@@ -1,5 +1,3 @@
-# pymongo is the Python plugin used to connect to MongoDB server.
-# You need to install it via command-line tool first.
 import pymongo
 import sys, getopt
 from datetime import datetime, timedelta
@@ -21,29 +19,24 @@ ALL_USERS = users.find({}, {"_id":0, "id":1}).distinct("id")
 DEFAULT_NUM_RECOMMENDATIONS = 10
 
 def relevance(user, number_of_recommendations=DEFAULT_NUM_RECOMMENDATIONS):
-    # TEST Repo Set
-    # Test ONE repo first
     repoQ = readmes_gensim.find({'watchers': {'$elemMatch': {'user_id': user}}}, {"_id":0, "id":1, "readme_tfidf":1, "watchers":1})
-    repo_set = readmes_gensim.find({'watchers': {'$elemMatch': {'user_id': {'$in': ALL_USERS}}}}, {"_id": 0, "id": 1, "readme_tfidf": 1, "watchers": 1})
     suggestion = []
-    counter = 0
-
-    # Repo's to test again
     for x in repoQ:
-        for y in repo_set:
-            counter += 1
-            if counter % 1000 == 0:
-                print(f'{(counter/10000)*100}% complete') # check if this works with mulitple x repos
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                c1 = executor.submit(compute_readme_relevance, x, y)
-                c2 = executor.submit(compute_time_relevance, x, y)
-                c3 = executor.submit(compute_stargazer_user_relevance, x, y)
-                relevance = c1.result() * c2.result() * c3.result()
-                suggestion.append((y['id'], relevance))
-                suggestion.sort(key = lambda x: (x[1]), reverse=True)
-                while len(suggestion) > number_of_recommendations:
-                    suggestion.pop()
-
+        cursor = readmes_gensim.find({'watchers': {'$elemMatch': {'user_id': {'$in': ALL_USERS}}}}, {"_id": 0, "id": 1, "readme_tfidf": 1, "watchers": 1}, no_cursor_timeout=True)
+        for y in cursor:
+            with concurrent.futures.ThreadPoolExecutor(3) as executor:
+                try:
+                    c1 = executor.submit(compute_readme_relevance, x, y)
+                    c2 = executor.submit(compute_time_relevance, x, y)
+                    c3 = executor.submit(compute_stargazer_user_relevance, x, y)
+                    relevance = c1.result() * c2.result() * c3.result()
+                    suggestion.append((y['id'], relevance))
+                    suggestion.sort(key = lambda x: (x[1]), reverse=True)
+                    while len(suggestion) > number_of_recommendations:
+                        suggestion.pop()
+                except:
+                    suggestion.append("Error")
+        cursor.close()
     return suggestion
 
 
@@ -166,24 +159,39 @@ def union(l1, l2):
     l3 = l1 + l2
     return l3
 
+# Uncomment this to run through all users from users database
+# if __name__ == "__main__":
+
+
 if __name__ == "__main__":
     argv = sys.argv[1:]
     user = 0
     num = 0
     try:
-        opts, args = getopt.getopt(argv, "h:u:n:", ["user=","num=","help="])
+        opts, args = getopt.getopt(argv, "a:h:u:n:", ["user=","num=","help=","all="])
     except getopt.GetoptError:
         print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
+        print("main.py -a/--all users, this will run through all users in the study from the collection 'users'")
         sys.exit(2)
     for opt, arg in opts:
         if opt in ('-h', "--help"):
             print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
+            print("main.py -a/--all users, this will run through all users in the study from the collection 'users'")
             print(f'Default number of recommendations is {DEFAULT_NUM_RECOMMENDATIONS}')
             sys.exit()
         elif opt in ("-u", "--user"):
             user = int(arg)
         elif opt in ("-n", "--num"):
             num = int(arg)
+        elif opt in ("-a", "--all"):
+            f = open("output.txt", "w")
+            for each in ALL_USERS:
+                print(f'Process {each}...')
+                f.write(str(each) + " ")
+                f.write(str(relevance(each, 10)) + "\n")
+            f.close()
+            print(f'Your output file is output.txt and contains all the recommendations for the user')
+            break
     if num == 0:
         print(f'Running relevance of user {user} with {DEFAULT_NUM_RECOMMENDATIONS} recommendations...')
         ret = relevance(user)
@@ -194,6 +202,7 @@ if __name__ == "__main__":
     if user == 0:
         print("User is not optional")
         print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
+        print("main.py -a/--all users, this will run through all users in the study from the collection 'users'")
     if num != 0 and user != 0:
         print(f'Running relevance of user {user} with {num} recommendations...')
         ret = relevance(user, num)
