@@ -184,12 +184,12 @@ if __name__ == "__main__":
         elif opt in ("-n", "--num"):
             num = int(arg)
         elif opt in ("-a", "--all"):
-            f = open("output.txt", "w")
             for each in ALL_USERS:
-                print(f'Process {each}...')
+                f = open(f'output_{each}.txt', "w")
+                print(f'Processing {each}...')
                 f.write(str(each) + " ")
                 f.write(str(relevance(each, 10)) + "\n")
-            f.close()
+                f.close()
             print(f'Your output file is output.txt and contains all the recommendations for the user')
             break
     if num == 0:
