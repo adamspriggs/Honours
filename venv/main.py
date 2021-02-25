@@ -198,7 +198,10 @@ if __name__ == "__main__":
         if len(ret) == 0:
             print(f'Could not find suggestions for {user}. This could be because the dataset of repositories do not include some/all of the repository that user follows.')
         else:
-            print(ret)
+            f.open(f'output_{user}.txt', "w")
+            f.write(str(user) + " ")
+            f.write(str(ret) + "\n")
+            f.close()
     if user == 0:
         print("User is not optional")
         print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
@@ -209,4 +212,7 @@ if __name__ == "__main__":
         if len(ret) == 0:
             print(f'Could not find suggestions for user: {user}. This could be because the dataset of repositories do not include some/all of the repository that user follows.')
         else:
-            print(ret)
+            f.open(f'output_{user}.txt', "w")
+            f.write(str(user) + " ")
+            f.write(str(ret) + "\n")
+            f.close()
