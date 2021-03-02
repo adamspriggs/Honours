@@ -5,6 +5,7 @@
   
 This python program will run through all or specified users Github Repositories and return a  
 list of tuples with the Github Repo ID then the relevance score of that user to that repository. It uses Repopal's implementation outlined in this [paper](https://xin-xia.github.io/publication/saner17.pdf).  
+
 This program takes in a set of repositories from the MongoDB supplied by Lance Wang in efforts  
 to aid in his Masters Thesis research. [TBD link](n.a.)  
   
@@ -36,6 +37,7 @@ NOTE: This will create mulitple files in the format output_<UserID>.txt
 
 ---
 [Repopal](https://xin-xia.github.io/publication/saner17.pdf) authors
+
 Yun Zhang<sup>1</sup>, David Lo<sup>2</sup>, Pavneet Singh Kochhar<sup>2</sup>, Xin Xia<sup>1</sup>, Quanlai Li<sup>3</sup>, and Jianling Sun<sup>1</sup>
 
 <sup>1</sup> College of Computer Science and Technology, Zhejiang University, Hangzhou, China
