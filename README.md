@@ -38,8 +38,6 @@ NOTE: This will create mulitple files in the format output_<UserID>.txt
 ---
 [Repopal](https://xin-xia.github.io/publication/saner17.pdf) authors
 
-Yun Zhang<sup>1</sup>, David Lo<sup>2</sup>, Pavneet Singh Kochhar<sup>2</sup>, Xin Xia<sup>1</sup>, Quanlai Li<sup>3</sup>, and Jianling Sun<sup>1</sup>
-
-<sup>1</sup> College of Computer Science and Technology, Zhejiang University, Hangzhou, China
-<sup>2</sup> School of Information Systems, Singapore Management University, Singapore
-<sup>3</sup> University of California, Berkeley, USA
+Yun Zhang, Xin Xia, Jianling Sun - College of Computer Science and Technology, Zhejiang University, Hangzhou, China
+David Lo, Pavneet Singh Kochhar - School of Information Systems, Singapore Management University, Singapore
+Quanlai Li - University of California, Berkeley, USA
