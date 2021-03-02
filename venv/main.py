@@ -252,7 +252,7 @@ if __name__ == "__main__":
     user = 0
     num = 0
     try:
-        opts, args = getopt.getopt(argv, "a:h:u:n:", ["user=","num=","help=","all="])
+        opts, args = getopt.getopt(argv, "a:h:u:n:", ["all=","help=","user=","num="])
     except getopt.GetoptError:
         print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
         print("main.py -a/--all users, this will run through all users in the study from the collection 'users'")
@@ -268,12 +268,12 @@ if __name__ == "__main__":
         elif opt in ("-n", "--num"):
             num = int(arg)
         elif opt in ("-a", "--all"):
+            f = open(f'output.txt', "w")
             for each in ALL_USERS:
-                f = open(f'output_{each}.txt', "w")
                 print(f'Processing {each}...')
                 f.write(str(each) + " ")
                 f.write(str(relevance(each, 10)) + "\n")
-                f.close()
+            f.close()
             print(f'Your output file is output.txt and contains all the recommendations for the user')
             break
     # If no number paramter is provided, run on user with default number of recommendations
