@@ -34,8 +34,9 @@ NOTE: This will create mulitple files in the format output_<UserID>.txt
 ` cat sample_file.txt | while read line; do python main.py -u line; done `  
   
 2. Windows  
-` foreach($line in Get-Content .\sample_file.txt) {  
- $cmd = python main.py -u $line Start-Process $cmd }`
+<pre><code>foreach($line in Get-Content .\sample_file.txt) {  
+	$cmd = python main.py -u $line 
+	Start-Process $cmd }</pre></code>
 
 ---
 [Repopal](https://xin-xia.github.io/publication/saner17.pdf) authors
