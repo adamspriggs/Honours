@@ -6,6 +6,8 @@
 This python program will run through all or specified users Github Repositories and return a  
 list of tuples with the Github Repo ID then the relevance score of that user to that repository. It uses Repopal's implementation outlined in this [paper](https://xin-xia.github.io/publication/saner17.pdf).  
 
+**NOTE: This program can give a 0 score relevance. This is because the final calculation mulitplies the three scores (time-relevance, stargazer-relevance, readme-relevance). Due to this, if any one of these algorithms return 0, the relevance score to a specific repo will be zero.
+
 This program takes in a set of repositories from the MongoDB supplied by Lance Wang in efforts  
 to aid in his Masters Thesis research. [TBD link](n.a.)  
   
