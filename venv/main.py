@@ -43,10 +43,13 @@ def relevance(user, number_of_recommendations=DEFAULT_NUM_RECOMMENDATIONS):
                 try:
                     # Readme Relevance Score
                     c1 = executor.submit(compute_readme_relevance, x, y)
+
                     # Time Relevance Score
                     c2 = executor.submit(compute_time_relevance, x, y)
+
                     # Stargazer Score
                     c3 = executor.submit(compute_stargazer_user_relevance, x, y)
+
                     # Multiply the results together and append to the suggestion list
                     relevance = c1.result() * c2.result() * c3.result()
                     suggestion.append((y['id'], relevance))
@@ -252,7 +255,7 @@ if __name__ == "__main__":
     user = 0
     num = 0
     try:
-        opts, args = getopt.getopt(argv, "a:h:u:n:", ["all=","help=","user=","num="])
+        opts, args = getopt.getopt(argv, "ahu:n:", ["all","help","user=","num="])
     except getopt.GetoptError:
         print("main.py -u <user id> [optional] -n <numberOfRecommendations>")
         print("main.py -a/--all users, this will run through all users in the study from the collection 'users'")
