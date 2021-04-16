@@ -143,6 +143,9 @@ def compute_stargazer_user_relevance(first_repo, second_repo):
 
     if len(repo_one + repo_two) == 0:
         return 0
+    if total / len(repo_one+repo_two) == 0:
+        return 0
+
     return total / len(repo_one + repo_two)
 
 def compute_sim(user1, user2):
@@ -169,7 +172,7 @@ def compute_sim(user1, user2):
     uni = union(user_one['watching'], user_two['watching'])
 
     if len(uni) == 0:
-        return 0;
+        return 0
     return len(inter) / len(uni)
 
 def compute_time_relevance(first_repo, second_repo):
@@ -217,6 +220,8 @@ def compute_time_relevance(first_repo, second_repo):
                     else:
                         sum += (1 / bot)
     average = sum / total
+    if average == 0:
+        return 0
     return average
 
 def intersection_on_user(l1, l2):
@@ -286,7 +291,7 @@ if __name__ == "__main__":
         if len(ret) == 0:
             print(f'Could not find suggestions for {user}. This could be because the dataset of repositories do not include some/all of the repository that user follows.')
         else:
-            f.open(f'output_{user}.txt', "w")
+            f = open(f'output_{user}.txt', "w")
             f.write(str(user) + " ")
             f.write(str(ret) + "\n")
             f.close()
@@ -303,7 +308,7 @@ if __name__ == "__main__":
             print(f'Could not find suggestions for user: {user}. This could be because the dataset of repositories do not include some/all of the repository that user follows.')
         else:
             # New file per person ran
-            f.open(f'output_{user}.txt', "w")
+            f = open(f'output_{user}.txt', "w")
             f.write(str(user) + " ")
             f.write(str(ret) + "\n")
             f.close()
